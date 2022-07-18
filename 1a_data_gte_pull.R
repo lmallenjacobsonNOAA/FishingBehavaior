@@ -6,7 +6,9 @@ library(MASS)
 
 ##############################
 # Original script from A. Jones
-
+# start by selecting all GTE data for long fin squid, from 2010 to 2022
+# pulls 2702 trips (some without full gte res?)
+# export lf_squid_trips_gte_2000_2022.rds
 ##############################
 # Set directories
 pwd <- dirname(rstudioapi::getActiveDocumentContext()$path)
@@ -39,106 +41,80 @@ con <- dbConnect(drv, username = usr,
 dbGetQuery(con,"SET ROLE ALL")
 
 #test access
-conversion_factors_cfdbs_head <- dbGetQuery(con,"SELECT * FROM CFDBS.SPECIES_ITIS_NE WHERE ROWNUM < 5")
-conversion_factors_cfdbs_nespp4_head <- dbGetQuery(con,"SELECT * FROM CFDBS.SPECIES_ITIS_VTR_NESPP4  WHERE ROWNUM < 5")
-#vtr_gear_codes_head <- dbGetQuery(con,"SELECT * FROM VTR.VLGEAR WHERE ROWNUM < 5") 
-conversion_factors_vers_head <- dbGetQuery(con,"SELECT * FROM FVTR.VERS_APPORTION_CONV_TO_CATCH WHERE ROWNUM < 5") 
-trip_list_head <- dbGetQuery(con,"SELECT * FROM FVTR.VERS_TRIP_LIST WHERE ROWNUM < 5") 
-stflt_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_CATCH WHERE ROWNUM < 5") 
-ncrp_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_CATCH WHERE ROWNUM  < 5") 
-stflt_trip_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_TRIP WHERE ROWNUM  < 5") 
-ncrp_trip_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_TRIP WHERE ROWNUM < 5") 
-ncrp_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_CATCH WHERE ROWNUM < 5") 
-fvtr_gear_codes_head <- dbGetQuery(con,"SELECT * FROM FVTR.FVTR_GEAR_CODES WHERE ROWNUM < 5")
-gte_join_head <- dbGetQuery(con,"SELECT * FROM NERS.GTE_JOIN WHERE ROWNUM < 5")
-#vps_vessels_head <- dbGetQuery(con,"SELECT * FROM PERMIT.VPS_VESSEL WHERE ROWNUM < 5")
-apsd_head <- dbGetQuery(con,"SELECT * FROM apsd.dmis_sfclam_040620@GARFO_NEFSC.world WHERE ROWNUM < 5")
+# conversion_factors_cfdbs_head <- dbGetQuery(con,"SELECT * FROM CFDBS.SPECIES_ITIS_NE WHERE ROWNUM < 5")
+# conversion_factors_cfdbs_nespp4_head <- dbGetQuery(con,"SELECT * FROM CFDBS.SPECIES_ITIS_VTR_NESPP4  WHERE ROWNUM < 5")
+# conversion_factors_vers_head <- dbGetQuery(con,"SELECT * FROM FVTR.VERS_APPORTION_CONV_TO_CATCH WHERE ROWNUM < 5") 
+# trip_list_head <- dbGetQuery(con,"SELECT * FROM FVTR.VERS_TRIP_LIST WHERE ROWNUM < 5") 
+# stflt_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_CATCH WHERE ROWNUM < 5") 
+# ncrp_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_CATCH WHERE ROWNUM  < 5") 
+# stflt_trip_head <- dbGetQuery(con,"SELECT * FROM FVTR.STFLT_TRIP WHERE ROWNUM  < 5") 
+# ncrp_trip_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_TRIP WHERE ROWNUM < 5") 
+# ncrp_catch_head <- dbGetQuery(con,"SELECT * FROM FVTR.NCRP_VERS_CATCH WHERE ROWNUM < 5") 
+# fvtr_gear_codes_head <- dbGetQuery(con,"SELECT * FROM FVTR.FVTR_GEAR_CODES WHERE ROWNUM < 5")
+# gte_join_head <- dbGetQuery(con,"SELECT * FROM NERS.GTE_JOIN WHERE ROWNUM < 5")
+# apsd_head <- dbGetQuery(con,"SELECT * FROM apsd.dmis_sfclam_040620@GARFO_NEFSC.world WHERE ROWNUM < 5")
+# 
+# conversion_factors_cfdbs_names <- names(conversion_factors_cfdbs_head)
+# conversion_factors_cfdbs_nespp4_names <- names(conversion_factors_cfdbs_nespp4_head)
+# conversion_factors_vers_names <- names(conversion_factors_vers_head)
+# 
+# remove(conversion_factors_cfdbs_names,
+#        conversion_factors_cfdbs_nespp4_names,
+#        conversion_factors_vers_names)
 
-conversion_factors_cfdbs_names <- names(conversion_factors_cfdbs_head)
-conversion_factors_cfdbs_nespp4_names <- names(conversion_factors_cfdbs_nespp4_head)
-conversion_factors_vers_names <- names(conversion_factors_vers_head)
-
-remove(conversion_factors_cfdbs_names,
-       conversion_factors_cfdbs_nespp4_names,
-       conversion_factors_vers_names)
-
+###########################
+# pulling data
 #getting conversion factors (not the best table but what's in FVTR)
 conversion_factors_cfdbs <- dbGetQuery(con,"select * from CFDBS.SPECIES_ITIS_NE")
 conversion_factors_cfdbs_nespp4 <- dbGetQuery(con,"select * from CFDBS.SPECIES_ITIS_VTR_NESPP4")
-
-#getting gear codes - do not have access here
-#vtr_gear_codes <- dbGetQuery(con,"select * from VTR.VLGEAR")
-
 #getting conversion factors (not the best table but what's in FVTR)
 conversion_factors_vers <- dbGetQuery(con,"select * from FVTR.VERS_APPORTION_CONV_TO_CATCH")
-
-###########################
-###########################
-
 #Pulling the VERS Trip List View
 #This excludes trips reported by Carlos R. vessels, trips with errors and those there were part of research/EFPs
 trip_list <- dbGetQuery(con,"select * from FVTR.VERS_TRIP_LIST where deleted=0 and moved_status_flag in ('M','L') and trip_category = 1 and CRB_EXCL = 0")
-
-###########################
-###########################
-
 #Getting the catch, effort, landing, and trip data
 #Catch and discard info
-#stflt_catch <- dbGetQuery(con,"select * from FVTR.STFLT_CATCH where species_itis = 082521")
-#ncrp_catch <- dbGetQuery(con,"select * from FVTR.NCRP_VERS_CATCH where species_itis = 082521")
-
 stflt_catch <- dbGetQuery(con,"select * from FVTR.STFLT_CATCH")
 ncrp_catch <- dbGetQuery(con,"select * from FVTR.NCRP_VERS_CATCH")
-
 crpp_catch <- bind_rows(stflt_catch %>% mutate(SOURCE='STFLT'),
                         ncrp_catch %>% mutate(SOURCE='NCRP'))
-
 #Effort and gear info
 stflt_effort <- dbGetQuery(con,"select * from FVTR.STFLT_EFFORT")
 ncrp_effort <- dbGetQuery(con,"select * from FVTR.NCRP_VERS_EFFORT")
-
 crpp_effort <- bind_rows(stflt_effort %>% mutate(SOURCE='STFLT'),
                          ncrp_effort %>% mutate(SOURCE='NCRP'))
-
 #Sail date info (in GMT)
 stflt_trip <- dbGetQuery(con,"select * from FVTR.STFLT_TRIP")
 ncrp_trip <- dbGetQuery(con,"select * from FVTR.NCRP_VERS_TRIP")
-
 crpp_trip <- bind_rows(stflt_trip %>% mutate(SOURCE='STFLT'),
                        ncrp_trip %>% mutate(SOURCE='NCRP'))
-
 #getting gear codes
 fvtr_gear_codes <- dbGetQuery(con,"select * from FVTR.FVTR_GEAR_CODES")
-
 #CRB GTE data
 gte_join <- dbGetQuery(con,"select * from NERS.GTE_JOIN")
-
-#Pulling vessel data
-# vps_vessels <- dbGetQuery(con,"select * from PERMIT.VPS_VESSEL")
-
 #Pulling apsd table
 apsd <- dbGetQuery(con,"select * from apsd.dmis_sfclam_040620@GARFO_NEFSC.world")
-
-#Putting this all together
+###########################
+#merge data together
 #And then subsetting down to the Haul-by-haul records
 pulled_data <- trip_list %>% 
   dplyr::select(TRIP_ID,VESSEL_PERMIT_NUM,VESSEL_HULL_ID,VESSEL_NAME,SAIL_DATE_LCL,
-                REPORT_SOURCE,EVTR,SECTOR,STFLT,EM) %>% 
-  inner_join(.,crpp_effort %>% 
-               mutate(TRIP_ID=as.character(TRIP_ID))) %>% 
-  mutate(EFFORT_ID=paste(TRIP_ID,EFFORT_NUM)) %>%
-  inner_join(., crpp_catch %>% mutate(TRIP_ID=as.character(TRIP_ID)) %>%
-               dplyr::select(TRIP_ID,EFFORT_NUM,SPECIES_ITIS,GRADE_CODE,
+                REPORT_SOURCE,EVTR,SECTOR,STFLT,EM) %>% # select data from trip_list
+  inner_join(.,crpp_effort %>% # add effort data
+               mutate(TRIP_ID=as.character(TRIP_ID))) %>% # make trip id a character
+  mutate(EFFORT_ID=paste(TRIP_ID,EFFORT_NUM)) %>% # create new id, merging trip_id and effort_num
+  inner_join(., crpp_catch %>% mutate(TRIP_ID=as.character(TRIP_ID)) %>% # add catch data
+               dplyr::select(TRIP_ID,EFFORT_NUM,SPECIES_ITIS,GRADE_CODE, # select catch data to add
                              MARKET_CODE,HAIL_AMOUNT_UOM,
                              HAIL_AMOUNT,DISPOSITION_CODE) %>%
-               mutate(EFFORT_ID=paste(TRIP_ID,EFFORT_NUM))) %>% 
-  mutate(AREA_CODE = as.numeric(as.character(FA_AREA_CODE))) %>%
-  mutate(AREA_FISHED=case_when(AREA_CODE<=599 ~ 'NE',AREA_CODE>=600 ~ 'MA')) %>%
-  inner_join(.,fvtr_gear_codes %>%
-               dplyr::select(GEAR_CODE,VTR_GEAR_CODE,ACCSP_GEAR_CODE),
-             by=c('GC_GEAR_CODE'='GEAR_CODE')) %>%
-  mutate(QUARTER=quarter(SAIL_DATE_LCL),YEAR=year(SAIL_DATE_LCL)) %>%
-  filter(REPORT_SOURCE=='HBH')
+               mutate(EFFORT_ID=paste(TRIP_ID,EFFORT_NUM))) %>% # create new id, merging trip_id and effort_num
+  mutate(AREA_CODE = as.numeric(as.character(FA_AREA_CODE))) %>% # make area code a character
+  mutate(AREA_FISHED=case_when(AREA_CODE<=599 ~ 'NE',AREA_CODE>=600 ~ 'MA')) %>% # add discrete areas fished, NE and MA
+  inner_join(.,fvtr_gear_codes %>% # Add in fvtr gear codes
+               dplyr::select(GEAR_CODE,VTR_GEAR_CODE,ACCSP_GEAR_CODE), # select data
+             by=c('GC_GEAR_CODE'='GEAR_CODE')) %>% # join by id
+  mutate(QUARTER=quarter(SAIL_DATE_LCL),YEAR=year(SAIL_DATE_LCL)) %>% # add dates
+  filter(REPORT_SOURCE=='HBH') #filter only HBH source
 
 #SOURCE FOR FUNCTIONS
 #Making a function to convert dmm to dd for LAT
@@ -257,24 +233,14 @@ pulled_data_cf_sum_sum_sub <- pulled_data_cf_sum_sum %>% ungroup() %>%
          start_lon=as.numeric(as.character(start_lon)),
          end_lat=as.numeric(as.character(end_lat)),
          end_lon=as.numeric(as.character(end_lon)))
-#adding a shared gear column
-# pulled_data_cf_sum_sum_sub <-
-#   pulled_data_cf_sum_sum_sub %>%
-  # left_join(.,vtr_gear_codes %>% 
-  #             dplyr::select(GEARCODE,NEGEAR) %>% 
-  #             distinct() %>% drop_na() %>% arrange(GEARCODE) %>% 
-  #             group_by(GEARCODE) %>% top_n(1),
-  #           by=c('gear_code'='GEARCODE')) %>%
-#  dplyr::rename(gear_code_vtr=gear_code,gear_code_obs=NEGEAR)
 
+###########################
+# Subsetting data for this project
 #Subsetting this down to records where loligo are >0.39 of the catch
 #This comesd from the management world where >40% loligo is used to identify trips in the fishery
 pulled_lf_squid_trips <- pulled_data_cf_sum_sum_sub %>%
-  filter(year(sail_date)<2020,year(sail_date)>2015) %>%
+  filter(year(sail_date)<2022,year(sail_date)>2010) %>%
   filter(TOT_LOLIGO_CATCH/TOT_CATCH > 0.39999)
-
-
-##MAKING SOME DATA PROJECTS
 
 #Making a GTE join product
 #Doing this before bringing in the APSD data because it will help determine
@@ -297,6 +263,7 @@ matched_number <- pulled_lf_squid_trips_gte  %>% .$trip_id %>% unique() %>%
 
 #Looking at the proportion of the Study Fleet trips that match TRIP_ID to DOCID
 matched_number/total_number
+#63% matched
 
 #Joining the data sets to bring over the IMGID that is equivalent to GEARID
 SF_MATCHED_TO_APSD <- pulled_lf_squid_trips_gte %>% left_join(.,
@@ -309,69 +276,6 @@ SF_MATCHED_TO_APSD <- pulled_lf_squid_trips_gte %>% left_join(.,
 
 #writing a file
 #write_csv(SF_MATCHED_TO_APSD,'SF_MATCHED_TO_APSD.csv')
-saveRDS(SF_MATCHED_TO_APSD, paste0(dir_output,"/SF_MATCHED_TO_APSD.rds"))
+saveRDS(pulled_lf_squid_trips_gte, paste0(dir_output,"/lf_squid_trips_gte_2000_2022.rds"))
 
-#Looking at trips that didn't match                                        
-pulled_lf_squid_trips_gte %>% dplyr::select(trip_id,permit,sail_date) %>% 
-  filter(trip_id==31047310060109) %>%
-  distinct() %>% arrange(desc(sail_date))
-
-########################################
-# more years
-#Subsetting this down to records where loligo are >0.39 of the catch
-#This comesd from the management world where >40% loligo is used to identify trips in the fishery
-pulled_lf_squid_trips_allyrs <- pulled_data_cf_sum_sum_sub %>%
-  filter(year(sail_date)<2023,year(sail_date)>2006) %>%
-  filter(TOT_LOLIGO_CATCH/TOT_CATCH > 0.39999)
-
-
-##MAKING SOME DATA PROJECTS
-
-#Making a GTE join product
-#Doing this before bringing in the APSD data because it will help determine
-#how many trips are not matching that we care about
-pulled_lf_squid_trips_gte_allyrs <-
-  pulled_lf_squid_trips_allyrs %>%
-  left_join(.,gte_join %>%
-              mutate(haul_id=paste(TRIP_ID,EFFORT_NUM),
-                     has_GTE='YES'))
-
-##Adding the APSD data
-#Looking at the number of trips in Ben's table
-#using a straight match between SF trip_id and DMIS' DOCID
-total_number <- pulled_lf_squid_trips_gte_allyrs  %>% .$trip_id %>% unique() %>% length()
-
-matched_number <- pulled_lf_squid_trips_gte_allyrs  %>% .$trip_id %>% unique() %>% 
-  intersect(.,apsd %>% #mutate(DOCID=str_sub(DOCID,1,14)) %>%
-              .$DOCID %>% 
-              unique()) %>% length()
-
-#Looking at the proportion of the Study Fleet trips that match TRIP_ID to DOCID
-matched_number/total_number
-
-#Joining the data sets to bring over the IMGID that is equivalent to GEARID
-SF_MATCHED_TO_APSD <-
-  pulled_lf_squid_trips_gte %>%
-  left_join(.,
-            apsd %>%
-              dplyr::select(IMGID,DOCID,DATE_TRIP,PERMIT) %>%
-              mutate(PERMIT=as.character(PERMIT)) %>% distinct(),
-            #by=c('permit'='PERMIT','sail_date'='DATE_TRIP')) %>% 
-            by=c('TRIP_ID'='DOCID')) %>% 
-  filter(!is.na(IMGID)) %>% #.$IMGID %>% as.character() %>% unique()
-  dplyr::select(PERMIT,permit,trip_id,IMGID,sail_date,DATE_TRIP) %>% distinct()
-
-#writing a file
-#write_csv(SF_MATCHED_TO_APSD,'SF_MATCHED_TO_APSD.csv')
-saveRDS(SF_MATCHED_TO_APSD, paste0(dir_output,"/SF_MATCHED_TO_APSD.rds"))
-
-
-
-apsd %>% dplyr::select(IMGID,DOCID,DATE_TRIP,PERMIT) %>%
-  filter(year(DATE_TRIP)==2010) %>%
-  mutate(DOCID=as.character(DOCID)) %>% 
-  filter(PERMIT== 310473) %>% arrange(DATE_TRIP)
-
-#look at trips
-length(unique(SF_MATCHED_TO_APSD$IMGID))
-
+#saveRDS(SF_MATCHED_TO_APSD, paste0(dir_output,"/SF_MATCHED_TO_APSD_LFS_2000_2022.rds"))
