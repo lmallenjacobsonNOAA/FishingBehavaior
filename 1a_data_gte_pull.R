@@ -12,7 +12,7 @@ library(MASS)
 pwd <- dirname(rstudioapi::getActiveDocumentContext()$path)
 setwd(dirname(rstudioapi::getActiveDocumentContext()$path))
 
-repository <- "MSA_Wind_FootprintBias"
+repository <- "predicting_fishing_behavaior"
 path_base <- "C:/Users/lianne.allen-jacobso/Documents/"
 check_pwd <- paste0(path_base, "Repositories/",repository)
 pwd == check_pwd
