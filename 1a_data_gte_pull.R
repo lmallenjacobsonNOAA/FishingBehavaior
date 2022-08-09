@@ -94,6 +94,8 @@ fvtr_gear_codes <- dbGetQuery(con,"select * from FVTR.FVTR_GEAR_CODES")
 gte_join <- dbGetQuery(con,"select * from NERS.GTE_JOIN")
 #Pulling apsd table
 apsd <- dbGetQuery(con,"select * from apsd.dmis_sfclam_040620@GARFO_NEFSC.world")
+#Select pre-gte data
+pre_gte <- dbGetQuery(con, "select *FROM NERS.GPS_POLL_DATA")
 ###########################
 #merge data together
 #And then subsetting down to the Haul-by-haul records
@@ -278,4 +280,30 @@ SF_MATCHED_TO_APSD <- pulled_lf_squid_trips_gte %>% left_join(.,
 #write_csv(SF_MATCHED_TO_APSD,'SF_MATCHED_TO_APSD.csv')
 saveRDS(pulled_lf_squid_trips_gte, paste0(dir_output,"/lf_squid_trips_gte_2000_2022.rds"))
 
-#saveRDS(SF_MATCHED_TO_APSD, paste0(dir_output,"/SF_MATCHED_TO_APSD_LFS_2000_2022.rds"))
+dt_gte <- setDT(readRDS(paste0(dir_output,"/lf_squid_trips_gte_2000_2022.rds")))
+##############################
+#pull matching trips with pre-gte
+dt_gte <- dt_gte[has_GTE=="YES"] # Select trips with GPS data (GTE)
+these_trips <-unique(dt_gte$TRIP_ID)
+these_trips<-these_trips[!is.na(these_trips)]
+these_trips_string <- paste(as.character(these_trips), collapse=", ")
+
+poll_data_head <- dbGetQuery(con,"
+  SELECT *
+  FROM NERS.GPS_POLL_DATA
+  WHERE ROWNUM < 5")
+
+poll_data <- dbGetQuery(con,paste0("SELECT * FROM NERS.GPS_POLL_DATA WHERE TRIP_ID IN (", these_trips_string, ")"))
+saveRDS(poll_data, paste0(dir_output,"/lf_squid_trips_poll_data_2000_2022.rds"))
+names(poll_data)
+head(poll_data)
+
+gte_effort_head <- dbGetQuery(con,"select * from NERS.GTE_EFFORTS
+                         WHERE ROWNUM < 5")
+names(gte_effort_head)
+
+dt_gte_effort <- dbGetQuery(con,paste0("SELECT * FROM NERS.GTE_EFFORTS WHERE TRIP_ID IN (", these_trips_string, ")"))
+
+saveRDS(dt_gte_effort, paste0(dir_output,"/dt_gte_effort.rds"))
+names(dt_gte_effort)
+head(dt_gte_effort)
