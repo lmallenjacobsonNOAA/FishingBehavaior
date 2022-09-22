@@ -72,6 +72,15 @@ saveRDS(dt_merge, paste0(dir_output,"/dt_polls_annotated.rds"))
 
 dt_polls <- dt_merge
 remove(dt_merge)
+
+
+#add new variable, "chunk_id" to group all section of trip -
+#i.e., similar to haul_id, but including non-fishing
+dt_polls<- readRDS(paste0(dir_output,"/dt_polls_annotated.rds"))
+
+dt_polls[order(DATETIME_GMT), chunk := rleidv(dt_polls$EFFORT_NUM), by = TRIP_ID]
+saveRDS(dt_merge, paste0(dir_output,"/dt_polls_annotated.rds"))
+
 ##############################
 # Coerce into SF (simple features)
 sf_polls_wgs84 <- st_as_sf(x = dt_polls,                         
@@ -82,6 +91,9 @@ saveRDS(sf_polls_wgs84, paste0(dir_output,"/sf_polls_wgs84.rds"))
 sf_polls_nad83 <- st_transform(sf_polls_wgs84, crs_nad83)
 
 saveRDS(sf_polls_nad83, paste0(dir_output,"/sf_polls_nad83.rds"))
+
+##############################
+# Scratch - delete all sections below here
 
 ##############################
 # Plot 10 trips
