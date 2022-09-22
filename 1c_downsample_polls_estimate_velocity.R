@@ -40,6 +40,7 @@ crs_nad83 <- readRDS(paste0(dir_data, "/crs_vtr_buffer.rds")) # Pull in CRS from
 #select subset of trips for testing
 unique_trips <- unique(dt_polls$TRIP_ID)
 these_trips <- unique_trips[1:20]
+
 ##############################
 # downsample, take first point every hour
 dt_polls_hourly <-
@@ -66,7 +67,7 @@ saveRDS(sf_polls_hourly_nad83, paste0(dir_output,"/sf_polls_hourly_nad83.rds"))
 ##############################
 # side by side plots with original and downsampled data
 this_trip <- unique_trips[[1]]
-these_trips <- unique_trips[1:50]
+these_trips <- unique_trips[1:100]
 
 for(this_trip in these_trips){
   sf <- sf_polls_wgs84 %>% filter(TRIP_ID == this_trip) %>% select(fishing)
@@ -99,13 +100,37 @@ for(this_trip in these_trips){
                              pad_x = unit(0.2, "in"), pad_y = unit(0.3, "in"),
                              style = north_arrow_fancy_orienteering))
   
-  sf_hourly <- sf_polls_hourly_wgs84 %>% filter(TRIP_ID == this_trip) %>% select(fishing)
+  sf_hourly <- sf_polls_hourly_wgs84 %>%
+    filter(TRIP_ID == this_trip) %>%
+    arrange(DATETIME_GMT) %>%
+    select(fishing, chunk, DATETIME_GMT)
+  
+  #singles <- sf_hourly %>% group_by(chunk) %>% count() %>% filter(n == 1)
+  multiples <- sf_hourly %>% group_by(chunk) %>% count() %>% filter(n > 1)
+  
+  sf_hourly_multiples <- sf_hourly  %>%
+    filter(chunk %in% multiples$chunk)
+
+  sf_linestring_hourly <-  sf_polls_hourly_wgs84 %>%
+    filter(TRIP_ID == this_trip) %>%
+    arrange(DATETIME_GMT) %>%
+    summarize(do_union=FALSE) %>% 
+    st_cast("LINESTRING")
+
+  sf_linestring_hourly_by_group <-  sf_hourly_multiples %>%
+    #filter(TRIP_ID == this_trip) %>%
+    arrange(DATETIME_GMT) %>%
+    group_by(chunk, fishing) %>% 
+    summarize(do_union=FALSE) %>% 
+    st_cast("LINESTRING")
   
   (this_plot_hourly <- ggmap(this_map) +
-      geom_sf(data = sf_hourly,inherit.aes = FALSE, aes(color= fishing)) +
+      geom_sf(data = sf_linestring_hourly,inherit.aes = FALSE, size = 1, color = "white")+
+      geom_sf(data = sf_linestring_hourly_by_group,inherit.aes = FALSE, aes(color= fishing), size = 1, alpha = 0.5)+
+      geom_sf(data = sf_hourly,inherit.aes = FALSE, aes(color= fishing), size = 2) +
       coord_sf(crs = st_crs(4326))+
       scale_color_viridis_d(option = "rocket",
-                            alpha = .5, begin = 0.25, end = .75)+
+                            begin = 0.25, end = .75)+
       labs(y = "Latitude", x = "Longitude",
            title='Downsampled: 1/hr',
            subtitle = paste0("Trip:", this_trip))+
@@ -117,8 +142,8 @@ for(this_trip in these_trips){
   
   (this_patchwork <- this_plot+this_plot_hourly)
   
-  width = 11
-  height = 8.5
+  width = 16
+  height = width/1.3
   
   ggsave(filename = paste0(dir_output, "/test/downsampled/",this_trip,".png"),
          plot = this_patchwork,
@@ -418,3 +443,5 @@ sf_polls_wgs84 <- sf_polls_wgs84 %>%
 # and in these cases the points are the same
 # but mike calculates a non-zero velocity - need to find out why
 # rounding problem in coordinates?
+
+test_sf <- 
